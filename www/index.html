@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Phaze - A real-time web audio pitch-shifte</title>
+    <title>Phaze - A real-time web audio pitch-shifter</title>
     <link rel="stylesheet" type="text/css" href="./style.css" />
     <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
     <script src="./main.js"></script>
@@ -11,7 +11,7 @@
 <body>
     <div class="wrapper">
         <h1>Phaze: a real-time web audio pitch-shifter</h1>
-        <div id="no-worklet" style="display: none;">Audio Worklet API not supported by you browser, try a recent Chrome version.</div>
+        <div id="no-worklet" style="display: none;">Audio Worklet API not supported by your browser, try a recent Chrome version.</div>
         <div class="timeline" id="timeline"></div>
         <div class="controls">
             <button id="play-pause" data-playing="false" role="switch" aria-checked="false">
@@ -27,6 +27,27 @@
                 <span>Pitch</span>
                 <input id="pitch" type="range" min="0.5" max="1.5" step="0.01" />
                 <span id="pitch-value">1.00</span>
+            </label>
+            <div></div>
+            <label for="dry">
+                <span>Dry</span>
+                <input type="range" id="dry" min="0" max="1" step="0.01" value="1.0">
+                <span id="dry-value">1.00</span>
+            </label>
+            <label for="delay">
+                <span>Delay</span>
+                <input type="range" id="delay" min="0" max="0.75" step="0.01" value="0.0">
+                <span id="delay-value">0.0</span>
+            </label>
+            <label for="reverb">
+                <span>Reverb</span>
+                <input type="range" id="reverb" min="0" max="1" step="0.01" value="0.0">
+                <span id="reverb-value">0.00</span>
+            </label>
+            <label for="flanger">
+                <span>Flanger</span>
+                <input type="range" id="flanger" min="0" max="0.75" step="0.01" value="0.0">
+                <span id="flanger-value">0.00</span>
             </label>
         </div>
     </div>

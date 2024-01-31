@@ -20450,14 +20450,16 @@ let loader = new wavesLoaders.AudioBufferLoader();
 
 var speedFactor = 1.0;
 var pitchFactor = 1.0;
+var delayTime = 0.5;
+var delayGain = 0.5;
 
 async function init() {
     if (audioContext.audioWorklet === undefined) {
         handleNoWorklet();
         return;
     }
-    const buffer = await loader.load('./sample.m4a');
-    let [playerEngine, phaseVocoderNode] = await setupEngine(buffer);
+    const buffer = await loader.load('./sticky-vocals.wav');
+    let [playerEngine, phaseVocoderNode, delayNode, delayGainNode, delayFeedbackNode] = await setupEngine(buffer);
     let playControl = new wavesAudio.PlayControl(playerEngine);
     playControl.setLoopBoundaries(0, buffer.duration);
     playControl.loop = true;
@@ -20465,6 +20467,7 @@ async function init() {
     setupPlayPauseButton(playControl);
     setupSpeedSlider(playControl, phaseVocoderNode);
     setupPitchSlider(phaseVocoderNode);
+    setupDelaySlider(delayNode, delayGainNode, delayFeedbackNode);
     setupTimeline(buffer, playControl);
 }
 
@@ -20487,7 +20490,20 @@ async function setupEngine(buffer) {
     playerEngine.connect(phaseVocoderNode);
     phaseVocoderNode.connect(audioContext.destination);
 
-    return [playerEngine, phaseVocoderNode];
+    // Create delay node with feedback loop
+    let delayNode = new DelayNode(audioContext, { delayTime: 0.5 });
+    let delayGainNode = new GainNode(audioContext, { gain: 0 });
+    let delayFeedbackNode = new GainNode(audioContext, { gain: 0.5 });
+    let lowpassFilterNode = new BiquadFilterNode(audioContext, { type: 'lowpass', frequency: 1000 });
+
+    // Connect nodes for delay with feedback and lowpass filter
+    phaseVocoderNode.connect(delayNode);
+    delayNode.connect(lowpassFilterNode);
+    lowpassFilterNode.connect(delayFeedbackNode);
+    delayFeedbackNode.connect(delayNode); // Feedback loop
+    delayFeedbackNode.connect(audioContext.destination); // Also connect feedback to destination
+
+    return [playerEngine, phaseVocoderNode, delayNode, delayGainNode, delayFeedbackNode, lowpassFilterNode];
 }
 
 function setupPlayPauseButton(playControl) {
@@ -20534,6 +20550,18 @@ function setupPitchSlider(phaseVocoderNode) {
         pitchFactorParam.value = pitchFactor * 1 / speedFactor;
         $valueLabel.innerHTML = pitchFactor.toFixed(2);
     }, false);
+}
+
+function setupDelaySlider(delayNode, delayGainNode, delayFeedbackNode) {
+  let $delaySlider = document.querySelector('#delay');
+  let $valueLabel = document.querySelector('#delay-value');
+  
+  $delaySlider.addEventListener('input', function() {
+      let delayGain = parseFloat(this.value) ** 0.9;
+      delayGainNode.gain.value = delayGain;
+      delayFeedbackNode.gain.value = delayGain * 0.5;
+      $valueLabel.innerHTML = delayGain.toFixed(2);
+  }, false);
 }
 
 function setupTimeline(buffer, playControl) {
