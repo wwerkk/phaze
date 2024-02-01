@@ -20452,6 +20452,9 @@ var speedFactor = 1.0;
 var pitchFactor = 1.0;
 var vocalGain = 1.0;
 
+var warpBypassed = false;
+var fxBypassed = false;
+
 var delayTime = 0.5;
 var delayFeedback = 0.4;
 var delayCutoff = 1000;
@@ -20466,8 +20469,6 @@ var flangerRate = 0.6;
 var flangerFeedback = 0.7;
 var flangerCutoff = 1000;
 var flangerGain = 0.0;
-
-
 
 async function init() {
     if (audioContext.audioWorklet === undefined) {
@@ -20492,17 +20493,20 @@ async function init() {
     vocalGainNode.connect(audioContext.destination);
 
     vocalGainNode.connect(delayNode);
-    delayGainNode.connect(audioContext.destination); // Also connect feedback to destination
+    delayGainNode.connect(audioContext.destination);
     vocalGainNode.connect(reverbNode);
     reverbGainNode.connect(audioContext.destination);
     vocalGainNode.connect(flangerDelayNode);
     flangerGainNode.connect(audioContext.destination);
 
+    setupWarpBypassButton(playControl, phaseVocoderNode);
+    setupFXBypassButton(delayGainNode, reverbGainNode, flangerGainNode);
+
     setupPlayPauseButton(playControl);
     setupSpeedSlider(playControl, phaseVocoderNode);
     setupPitchSlider(phaseVocoderNode);
     setupVocalSlider(vocalGainNode);
-    setupDelaySlider(delayNode, delayGainNode);
+    setupDelaySlider(delayGainNode);
     setupReverbSlider(reverbGainNode);
     setupFlangerSlider(flangerGainNode);
     setupTimeline(buffer, playControl);
@@ -20559,9 +20563,6 @@ function setupFlanger(audioContext) {
     return { flangerDelayNode, flangerGainNode};
 }
 
-
-
-
 async function setupEngine(buffer) {
     let playerEngine = new wavesAudio.PlayerEngine(buffer);
     playerEngine.buffer = buffer;
@@ -20609,8 +20610,8 @@ function setupSpeedSlider(playControl, phaseVocoderNode) {
     let $valueLabel = document.querySelector('#speed-value');
     $speedSlider.addEventListener('input', function() {
         speedFactor = parseFloat(this.value);
-        playControl.speed = speedFactor;
-        pitchFactorParam.value = pitchFactor * 1 / speedFactor;
+        playControl.speed = warpBypassed ? 1.0 : speedFactor;
+        pitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
         $valueLabel.innerHTML = speedFactor.toFixed(2);
     }, false);
 }
@@ -20621,7 +20622,7 @@ function setupPitchSlider(phaseVocoderNode) {
     let $valueLabel = document.querySelector('#pitch-value');
     $pitchSlider.addEventListener('input', function() {
         pitchFactor = parseFloat(this.value);
-        pitchFactorParam.value = pitchFactor * 1 / speedFactor;
+        pitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
         $valueLabel.innerHTML = pitchFactor.toFixed(2);
     }, false);
 }
@@ -20636,26 +20637,26 @@ function setupVocalSlider(vocalGainNode) {
     }, false);
 }
 
-function setupDelaySlider(delayNode, delayGainNode) {
-  let $delaySlider = document.querySelector('#delay');
-  let $valueLabel = document.querySelector('#delay-value');
-  
-  $delaySlider.addEventListener('input', function() {
-      delayGain = parseFloat(this.value) ** 0.9;
-      delayGainNode.gain.value = delayGain;
-      $valueLabel.innerHTML = delayGain.toFixed(2);
-  }, false);
+function setupDelaySlider(delayGainNode) {
+    let $delaySlider = document.querySelector('#delay');
+    let $valueLabel = document.querySelector('#delay-value');
+
+    $delaySlider.addEventListener('input', function() {
+        delayGain = parseFloat(this.value) ** 0.9;
+        delayGainNode.gain.value = fxBypassed ? 0 : delayGain;
+        $valueLabel.innerHTML = delayGain.toFixed(2);
+    }, false);
 }
 
 function setupReverbSlider(reverbGainNode) {
-  let $reverbSlider = document.querySelector('#reverb');
-  let $valueLabel = document.querySelector('#reverb-value');
-  
-  $reverbSlider.addEventListener('input', function() {
-      reverbGain = parseFloat(this.value) ** 0.9;
-      reverbGainNode.gain.value = reverbGain;
-      $valueLabel.innerHTML = reverbGain.toFixed(2);
-  }, false);
+    let $reverbSlider = document.querySelector('#reverb');
+    let $valueLabel = document.querySelector('#reverb-value');
+
+    $reverbSlider.addEventListener('input', function() {
+        reverbGain = parseFloat(this.value) ** 0.9;
+        reverbGainNode.gain.value = fxBypassed ? 0 : reverbGain;
+        $valueLabel.innerHTML = reverbGain.toFixed(2);
+    }, false);
 }
 
 function setupFlangerSlider(flangerGainNode) {
@@ -20664,10 +20665,56 @@ function setupFlangerSlider(flangerGainNode) {
 
     $flangerSlider.addEventListener('input', function() {
         flangerGain = parseFloat(this.value) ** 0.9;
-        flangerGainNode.gain.value = flangerGain;
+        flangerGainNode.gain.value = fxBypassed ? 0 : flangerGain;
         $valueLabel.innerHTML = flangerGain.toFixed(2);
     }, false);
 }
+
+function setupWarpBypassButton(playControl, phaseVocoderNode) {
+    let warpBypassButton = document.getElementById('warp-bypass');
+    warpBypassed = false;
+
+    warpBypassButton.addEventListener('click', function() {
+        warpBypassed = !warpBypassed;
+
+        if (warpBypassed) {
+            // Change pitchFactor and speed to 1.0
+            phaseVocoderNode.parameters.get('pitchFactor').value = 1.0;
+            playControl.speed = 1.0;
+        } else {
+            // Change pitchFactor and speed to slider values
+            phaseVocoderNode.parameters.get('pitchFactor').value = pitchFactor * 1 / speedFactor;
+            playControl.speed  = speedFactor;
+        }
+        
+        warpBypassButton.textContent = warpBypassed ? "Enable Warp" : "Bypass Warp";
+    });
+}
+
+function setupFXBypassButton(delayGainNode, reverbGainNode, flangerGainNode) {
+    let fxBypassButton = document.getElementById('fx-bypass');
+    fxBypassed = false;
+
+    fxBypassButton.addEventListener('click', function() {
+        fxBypassed = !fxBypassed;
+
+        if (fxBypassed) {
+            // Set effect gains to 0 to bypass effects
+            delayGainNode.gain.value = 0;
+            reverbGainNode.gain.value = 0;
+            flangerGainNode.gain.value = 0;
+        } else {
+            // Restore effect gains to slider values
+            delayGainNode.gain.value = delayGain;
+            reverbGainNode.gain.value = reverbGain;
+            flangerGainNode.gain.value = flangerGain;
+        }
+
+        fxBypassButton.textContent = fxBypassed ? "Enable FX" : "Bypass FX";
+    });
+}
+
+
 
 function setupTimeline(buffer, playControl) {
     let $timeline = document.querySelector('#timeline');
