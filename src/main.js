@@ -10,6 +10,7 @@ let loader = new wavesLoaders.AudioBufferLoader();
 var speedFactor = 1.0;
 var pitchFactor = 1.0;
 var vocalGain = 1.0;
+var instrGain = 1.0;
 
 var warpBypassed = false;
 var fxBypassed = false;
@@ -34,15 +35,27 @@ async function init() {
         handleNoWorklet();
         return;
     }
-    const buffer = await loader.load('./sticky-vocals.wav');
+    const vocalBuffer = await loader.load('./sticky-vocals.wav');
+    const instrBuffer = await loader.load('./sticky-instr.wav');
     let [
-        playerEngine,
-        phaseVocoderNode,
+        vocalPlayerEngine,
+        vocalPhaseVocoderNode,
         vocalGainNode
-    ] = await setupEngine(buffer);
-    let playControl = new wavesAudio.PlayControl(playerEngine);
-    playControl.setLoopBoundaries(0, buffer.duration);
-    playControl.loop = true;
+    ] = await setupEngine(vocalBuffer);
+    let vocalPlayControl = new wavesAudio.PlayControl(vocalPlayerEngine);
+    vocalPlayControl.setLoopBoundaries(0, vocalBuffer.duration);
+    vocalPlayControl.loop = true;
+
+    let [
+        instrPlayerEngine,
+        instrPhaseVocoderNode,
+        instrGainNode
+    ] = await setupEngine(instrBuffer, 0.0);
+    let instrPlayControl = new wavesAudio.PlayControl(instrPlayerEngine);
+    instrPlayControl.setLoopBoundaries(0, instrBuffer.duration);
+    instrPlayControl.loop = true;
+    console.log("Play Control:", instrPlayControl);
+
 
     let { delayNode, delayGainNode } = setupDelay(audioContext);
     reverbBuffer = await loader.load('./rir.wav');
@@ -50,6 +63,7 @@ async function init() {
     let { flangerDelayNode, flangerGainNode } = setupFlanger(audioContext);
 
     vocalGainNode.connect(audioContext.destination);
+    instrGainNode.connect(audioContext.destination);
 
     vocalGainNode.connect(delayNode);
     delayGainNode.connect(audioContext.destination);
@@ -58,17 +72,22 @@ async function init() {
     vocalGainNode.connect(flangerDelayNode);
     flangerGainNode.connect(audioContext.destination);
 
-    setupWarpBypassButton(playControl, phaseVocoderNode);
+    setupInstrBypassButton(instrGainNode);
+    setupWarpBypassButton(
+        vocalPlayControl, vocalPhaseVocoderNode,
+        instrPlayControl, instrPhaseVocoderNode);
     setupFXBypassButton(delayGainNode, reverbGainNode, flangerGainNode);
 
-    setupPlayPauseButton(playControl);
-    setupSpeedSlider(playControl, phaseVocoderNode);
-    setupPitchSlider(phaseVocoderNode);
+    setupPlayPauseButton(vocalPlayControl, instrPlayControl);
+    setupSpeedSlider(
+        vocalPlayControl, vocalPhaseVocoderNode,
+        instrPlayControl, instrPhaseVocoderNode);
+    setupPitchSlider(vocalPhaseVocoderNode, instrPhaseVocoderNode);
     setupVocalSlider(vocalGainNode);
     setupDelaySlider(delayGainNode);
     setupReverbSlider(reverbGainNode);
     setupFlangerSlider(flangerGainNode);
-    setupTimeline(buffer, playControl);
+    setupTimeline(vocalBuffer, vocalPlayControl);
 }
 
 function handleNoWorklet() {
@@ -95,7 +114,7 @@ function setupDelay(audioContext) {
 }
 
 function setupReverb(audioContext, reverbBuffer) {
-    const reverbNode = new ConvolverNode(audioContext, { buffer: reverbBuffer });
+    const reverbNode = new ConvolverNode(audioContext, { vocalBuffer: reverbBuffer });
     const reverbGainNode = new GainNode(audioContext, { gain: reverbGain });
 
     reverbNode.connect(reverbGainNode);
@@ -122,25 +141,25 @@ function setupFlanger(audioContext) {
     return { flangerDelayNode, flangerGainNode};
 }
 
-async function setupEngine(buffer) {
+async function setupEngine(buffer, gain = 1.0) {
     let playerEngine = new wavesAudio.PlayerEngine(buffer);
     playerEngine.buffer = buffer;
     playerEngine.cyclic = true;
 
     await audioContext.audioWorklet.addModule('phase-vocoder.js');
     let phaseVocoderNode = new AudioWorkletNode(audioContext, 'phase-vocoder-processor');
-    let vocalGainNode = new GainNode(audioContext, { gain: vocalGain });
+    let gainNode = new GainNode(audioContext, { gain: gain});
     playerEngine.connect(phaseVocoderNode);
-    phaseVocoderNode.connect(vocalGainNode);
+    phaseVocoderNode.connect(gainNode);
 
     return [
         playerEngine,
         phaseVocoderNode,
-        vocalGainNode,
+        gainNode,
     ];
 }
 
-function setupPlayPauseButton(playControl) {
+function setupPlayPauseButton(vocalPlayControl, instrPlayControl) {
     let $playButton = document.querySelector('#play-pause');
     let $playIcon = $playButton.querySelector('.play');
     let $pauseIcon = $playButton.querySelector('.pause');
@@ -150,12 +169,16 @@ function setupPlayPauseButton(playControl) {
         }
 
         if (this.dataset.playing === 'false') {
-            playControl.start();
+            console.log(vocalPlayControl);
+            console.log(instrPlayControl);
+            vocalPlayControl.start();
+            instrPlayControl.start();
             this.dataset.playing = 'true';
             $playIcon.style.display = 'none';
             $pauseIcon.style.display = 'inline';
         } else if (this.dataset.playing === 'true') {
-            playControl.pause();
+            vocalPlayControl.pause();
+            instrPlayControl.pause();
             this.dataset.playing = 'false';
             $pauseIcon.style.display = 'none';
             $playIcon.style.display = 'inline';
@@ -163,25 +186,41 @@ function setupPlayPauseButton(playControl) {
     }, false);
 }
 
-function setupSpeedSlider(playControl, phaseVocoderNode) {
-    let pitchFactorParam = phaseVocoderNode.parameters.get('pitchFactor');
+function setupInstrBypassButton(instrGainNode) {
+    let instrBypassButton = document.getElementById('instr-bypass');
+    instrGainNode.gain.value = instrGain;
+    instrBypassButton.addEventListener('click', function() {
+        instrGain = instrGain === 0.0 ? 1.0 : 0.0;
+        instrGainNode.gain.value = instrGain;
+        instrBypassButton.textContent = instrGain === 0.0 ? "Enable Instr" : "Bypass Instr";
+    }
+    );
+}
+
+function setupSpeedSlider(vocalPlayControl, vocalPhaseVocoderNode, instrPlayControl, instrPhaseVocoderNode) {
+    let vocalPitchFactorParam = vocalPhaseVocoderNode.parameters.get('pitchFactor');
+    let instrPitchFactorParam = instrPhaseVocoderNode.parameters.get('pitchFactor');
     let $speedSlider = document.querySelector('#speed');
     let $valueLabel = document.querySelector('#speed-value');
     $speedSlider.addEventListener('input', function() {
         speedFactor = parseFloat(this.value);
-        playControl.speed = warpBypassed ? 1.0 : speedFactor;
-        pitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        vocalPlayControl.speed = warpBypassed ? 1.0 : speedFactor;
+        instrPlayControl.speed = warpBypassed ? 1.0 : speedFactor;
+        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        instrPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
         $valueLabel.innerHTML = speedFactor.toFixed(2);
     }, false);
 }
 
-function setupPitchSlider(phaseVocoderNode) {
-    let pitchFactorParam = phaseVocoderNode.parameters.get('pitchFactor');
+function setupPitchSlider(vocalPhaseVocoderNode, instrPhaseVocoderNode) {
+    let vocalPitchFactorParam = vocalPhaseVocoderNode.parameters.get('pitchFactor');
+    let instrPitchFactorParam = instrPhaseVocoderNode.parameters.get('pitchFactor');
     let $pitchSlider = document.querySelector('#pitch');
     let $valueLabel = document.querySelector('#pitch-value');
     $pitchSlider.addEventListener('input', function() {
         pitchFactor = parseFloat(this.value);
-        pitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        instrPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
         $valueLabel.innerHTML = pitchFactor.toFixed(2);
     }, false);
 }
@@ -229,7 +268,7 @@ function setupFlangerSlider(flangerGainNode) {
     }, false);
 }
 
-function setupWarpBypassButton(playControl, phaseVocoderNode) {
+function setupWarpBypassButton(vocalPlayControl, vocalPhaseVocoderNode, instrPlayControl, instrPhaseVocoderNode) {
     let warpBypassButton = document.getElementById('warp-bypass');
     warpBypassed = false;
 
@@ -238,12 +277,16 @@ function setupWarpBypassButton(playControl, phaseVocoderNode) {
 
         if (warpBypassed) {
             // Change pitchFactor and speed to 1.0
-            phaseVocoderNode.parameters.get('pitchFactor').value = 1.0;
-            playControl.speed = 1.0;
+            vocalPhaseVocoderNode.parameters.get('pitchFactor').value = 1.0;
+            instrPhaseVocoderNode.parameters.get('pitchFactor').value = 1.0;
+            vocalPlayControl.speed = 1.0;
+            instrPlayControl.speed = 1.0;
         } else {
             // Change pitchFactor and speed to slider values
-            phaseVocoderNode.parameters.get('pitchFactor').value = pitchFactor * 1 / speedFactor;
-            playControl.speed  = speedFactor;
+            vocalPhaseVocoderNode.parameters.get('pitchFactor').value = pitchFactor * 1 / speedFactor;
+            instrPhaseVocoderNode.parameters.get('pitchFactor').value = pitchFactor * 1 / speedFactor;
+            vocalPlayControl.speed  = speedFactor;
+            instrPlayControl.speed = speedFactor;
         }
         
         warpBypassButton.textContent = warpBypassed ? "Enable Warp" : "Bypass Warp";
