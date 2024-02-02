@@ -114,7 +114,7 @@ function setupDelay(audioContext) {
 }
 
 function setupReverb(audioContext, reverbBuffer) {
-    const reverbNode = new ConvolverNode(audioContext, { vocalBuffer: reverbBuffer });
+    const reverbNode = new ConvolverNode(audioContext, { buffer: reverbBuffer });
     const reverbGainNode = new GainNode(audioContext, { gain: reverbGain });
 
     reverbNode.connect(reverbGainNode);
@@ -253,6 +253,7 @@ function setupReverbSlider(reverbGainNode) {
     $reverbSlider.addEventListener('input', function() {
         reverbGain = parseFloat(this.value) ** 0.9;
         reverbGainNode.gain.value = fxBypassed ? 0 : reverbGain;
+        console.log(reverbGainNode.gain.value);
         $valueLabel.innerHTML = reverbGain.toFixed(2);
     }, false);
 }
