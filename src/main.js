@@ -3,6 +3,8 @@
 const wavesAudio = require('waves-audio');
 const wavesUI = require('waves-ui');
 const wavesLoaders = require('waves-loaders');
+const fs = require('fs');
+const path = require('path');
 
 let audioContext = wavesAudio.audioContext;
 let loader = new wavesLoaders.AudioBufferLoader();
@@ -88,6 +90,7 @@ async function init() {
     setupReverbSlider(reverbGainNode);
     setupFlangerSlider(flangerGainNode);
     setupTimeline(vocalBuffer, vocalPlayControl);
+    document.getElementById('dl-params').addEventListener('click', downloadParams);
 }
 
 function handleNoWorklet() {
@@ -360,5 +363,49 @@ function setupTimeline(buffer, playControl) {
         requestAnimationFrame(loop);
     }());
 }
+
+function downloadParams() {
+    const settings = {
+        speedFactor,
+        pitchFactor,
+        vocalGain,
+        instrGain,
+        warpBypassed,
+        fxBypassed,
+        delay: {
+            delayTime,
+            delayFeedback,
+            delayCutoff,
+            delayGain,
+        },
+        reverb: {
+            reverbGain,
+        },
+        flanger: {
+            flangerDelayTime,
+            flangerDepth,
+            flangerRate,
+            flangerFeedback,
+            flangerCutoff,
+            flangerGain,
+        },
+    };
+
+    const settingsStr = JSON.stringify(settings, null, 2);
+    const blob = new Blob([settingsStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a link and trigger the download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fx-params.json';
+    document.body.appendChild(a);
+    a.click();
+
+    // Clean up
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 
 window.addEventListener('load', init);

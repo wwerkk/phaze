@@ -1,0 +1,25 @@
+{
+  "speedFactor": 0.78,
+  "pitchFactor": 1.21,
+  "vocalGain": 0.7067373137235418,
+  "instrGain": 1,
+  "warpBypassed": false,
+  "fxBypassed": false,
+  "delay": {
+    "delayTime": 0.5,
+    "delayFeedback": 0.4,
+    "delayCutoff": 1000,
+    "delayGain": 0.7718895067235704
+  },
+  "reverb": {
+    "reverbGain": 0.6314458674893553
+  },
+  "flanger": {
+    "flangerDelayTime": 0.005,
+    "flangerDepth": 0.0025,
+    "flangerRate": 0.6,
+    "flangerFeedback": 0.7,
+    "flangerCutoff": 1000,
+    "flangerGain": 0.5068600617330473
+  }
+}
