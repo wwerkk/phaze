@@ -3,11 +3,13 @@
 const wavesAudio = require('waves-audio');
 const wavesUI = require('waves-ui');
 const wavesLoaders = require('waves-loaders');
-const fs = require('fs');
-const path = require('path');
 
 let audioContext = wavesAudio.audioContext;
 let loader = new wavesLoaders.AudioBufferLoader();
+
+let vocalPath = './sticky-vocals.wav';
+let instrPath = './sticky-instr.wav';
+let rirPath = './rir.wav';
 
 var speedFactor = 1.0;
 var pitchFactor = 1.0;
@@ -37,8 +39,8 @@ async function init() {
         handleNoWorklet();
         return;
     }
-    const vocalBuffer = await loader.load('./sticky-vocals.wav');
-    const instrBuffer = await loader.load('./sticky-instr.wav');
+    const vocalBuffer = await loader.load(vocalPath);
+    const instrBuffer = await loader.load(instrPath);
     let [
         vocalPlayerEngine,
         vocalPhaseVocoderNode,
@@ -60,7 +62,7 @@ async function init() {
 
 
     let { delayNode, delayGainNode } = setupDelay(audioContext);
-    reverbBuffer = await loader.load('./rir.wav');
+    reverbBuffer = await loader.load(rirPath);
     let { reverbNode, reverbGainNode } = setupReverb(audioContext, reverbBuffer);
     let { flangerDelayNode, flangerGainNode } = setupFlanger(audioContext);
 
@@ -367,6 +369,8 @@ function setupTimeline(buffer, playControl) {
 
 function downloadParams() {
     const settings = {
+        vocalPath,
+        instrPath,
         speedFactor,
         pitchFactor,
         vocalGain,
@@ -381,6 +385,7 @@ function downloadParams() {
         },
         reverb: {
             reverbGain,
+            rirPath,
         },
         flanger: {
             flangerDelayTime,
