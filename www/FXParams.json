@@ -1,6 +1,6 @@
 {
   "speedFactor": 0.78,
-  "pitchFactor": 1.21,
+  "pitchSemitones": 6,
   "vocalGain": 0.7067373137235418,
   "instrGain": 1,
   "warpBypassed": false,

@@ -15,6 +15,7 @@ let BPM = 135;
 
 var speedFactor = 1.0;
 var pitchFactor = 1.0;
+var pitchSemitones = 0;
 var vocalGain = 1.0;
 var instrGain = 1.0;
 
@@ -214,8 +215,9 @@ function setupSpeedSlider(vocalPlayControl, vocalPhaseVocoderNode, instrPlayCont
         vocalPlayControl.speed = warpBypassed ? 1.0 : speedFactor;
         instrPlayControl.speed = warpBypassed ? 1.0 : speedFactor;
         delayNode.delayTime.value = (60 / (BPM * (warpBypassed ? 1 : speedFactor))) * 4 * delayTime;
-        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor / speedFactor);
         instrPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        // instrPitchFactorParam.value = warpBypassed ? 1.0 : (1 / speedFactor); // alternatively for instr without pitchshift
         $valueLabel.innerHTML = speedFactor.toFixed(2);
     }, false);
 }
@@ -226,10 +228,12 @@ function setupPitchSlider(vocalPhaseVocoderNode, instrPhaseVocoderNode) {
     let $pitchSlider = document.querySelector('#pitch');
     let $valueLabel = document.querySelector('#pitch-value');
     $pitchSlider.addEventListener('input', function() {
-        pitchFactor = parseFloat(this.value);
-        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
+        pitchSemitones = parseFloat(this.value);
+        pitchFactor = Math.pow(2, pitchSemitones / 12);
+        vocalPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor / speedFactor);
         instrPitchFactorParam.value = warpBypassed ? 1.0 : (pitchFactor * 1 / speedFactor);
-        $valueLabel.innerHTML = pitchFactor.toFixed(2);
+        // instrPitchFactorParam.value = warpBypassed ? 1.0 : (1 / speedFactor); // alternatively for instr without pitchshift
+        $valueLabel.innerHTML = pitchSemitones.toFixed(0);
     }, false);
 }
 
@@ -377,7 +381,7 @@ function downloadParams() {
         vocalPath,
         instrPath,
         speedFactor,
-        pitchFactor,
+        pitchSemitones,
         vocalGain,
         instrGain,
         warpBypassed,
@@ -409,7 +413,7 @@ function downloadParams() {
     // Create a link and trigger the download
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'fx-params.json';
+    a.download = 'FXParams.json';
     document.body.appendChild(a);
     a.click();
 
