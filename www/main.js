@@ -20448,6 +20448,12 @@ const wavesLoaders = require('waves-loaders');
 let audioContext = wavesAudio.audioContext;
 let loader = new wavesLoaders.AudioBufferLoader();
 
+let vocalPath = './sticky-vocals.wav';
+let instrPath = './sticky-instr.wav';
+let rirPath = './rir.wav';
+
+let BPM = 135;
+
 var speedFactor = 1.0;
 var pitchFactor = 1.0;
 var vocalGain = 1.0;
@@ -20456,7 +20462,7 @@ var instrGain = 1.0;
 var warpBypassed = false;
 var fxBypassed = false;
 
-var delayTime = 0.5;
+var delayTime = 1/4;
 var delayFeedback = 0.4;
 var delayCutoff = 1000;
 var delayGain = 0.0;
@@ -20476,8 +20482,8 @@ async function init() {
         handleNoWorklet();
         return;
     }
-    const vocalBuffer = await loader.load('./sticky-vocals.wav');
-    const instrBuffer = await loader.load('./sticky-instr.wav');
+    const vocalBuffer = await loader.load(vocalPath);
+    const instrBuffer = await loader.load(instrPath);
     let [
         vocalPlayerEngine,
         vocalPhaseVocoderNode,
@@ -20499,7 +20505,7 @@ async function init() {
 
 
     let { delayNode, delayGainNode } = setupDelay(audioContext);
-    reverbBuffer = await loader.load('./rir.wav');
+    reverbBuffer = await loader.load(rirPath);
     let { reverbNode, reverbGainNode } = setupReverb(audioContext, reverbBuffer);
     let { flangerDelayNode, flangerGainNode } = setupFlanger(audioContext);
 
@@ -20542,7 +20548,7 @@ function handleNoWorklet() {
 }
 
 function setupDelay(audioContext) {
-    const delayNode = new DelayNode(audioContext, { delayTime: delayTime });
+    const delayNode = new DelayNode(audioContext, { delayTime: (60 / BPM) * 4 * delayTime });
     const delayFeedbackNode = new GainNode(audioContext, { gain: delayFeedback });
     const delayFilterNode = new BiquadFilterNode(audioContext, { type: 'lowpass', frequency: delayCutoff });
     const delayGainNode = new GainNode(audioContext, { gain: delayGain });
@@ -20806,6 +20812,8 @@ function setupTimeline(buffer, playControl) {
 
 function downloadParams() {
     const settings = {
+        vocalPath,
+        instrPath,
         speedFactor,
         pitchFactor,
         vocalGain,
@@ -20820,7 +20828,7 @@ function downloadParams() {
         },
         reverb: {
             reverbGain,
-            rirPath
+            rirPath,
         },
         flanger: {
             flangerDelayTime,
